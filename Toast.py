@@ -13,7 +13,6 @@ class QToaster(QtWidgets.QFrame):
 
         # self.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
         #                    QtWidgets.QSizePolicy.Maximum)
-
         self.setFixedSize(350, 200)
         self.setStyleSheet('''
             QToaster {
@@ -177,18 +176,30 @@ class QToaster(QtWidgets.QFrame):
         # now the widget should have the correct size hints, let's move it to the
         # right place
         geo.moveBottomRight(parentRect.bottomRight() + QtCore.QPoint(-margin, -margin))
-
         self.setGeometry(geo)
         self.show()
         self.opacityAni.start()
 
 
-def showToaster():
-    QToaster.showMessage('Thread: Style Sheets: re-using referencing builtin', 'Warning', 3)
+class ShowNofit(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.generalLayout = QtWidgets.QVBoxLayout(self)
+        self.rcWin = None
+        self.clickBtn = QtWidgets.QPushButton('Click')
+        self.clickBtn.clicked.connect(self.showToaster)
+        # attach
+        self.generalLayout.addWidget(self.clickBtn)
+
+    def showToaster(self):
+        if self.rcWin is None:
+            self.rcWin = QToaster()
+        self.rcWin.showMessage('Thread: Style Sheets: re-using referencing builtin', 'Warning', 3)
+
 
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
-    main = QToaster()
-    showToaster()
+    main = ShowNofit()
+    main.show()
     sys.exit(app.exec_())

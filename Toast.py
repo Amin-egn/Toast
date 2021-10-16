@@ -1,35 +1,46 @@
 # standard
 import sys
 # pyqt
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5.QtGui import QCursor
+from PyQt5.QtCore import (QTimer, QPropertyAnimation, QRect, QPoint, QSize, Qt,
+                          pyqtSignal)
+from PyQt5.QtWidgets import (QFrame, QApplication, QVBoxLayout, QHBoxLayout, QStyle,
+                             QLabel, QPushButton, QWidget)
 
 
-class QToaster(QtWidgets.QFrame):
-    closed = QtCore.pyqtSignal()
-
+class QToaster(QFrame):
     def __init__(self, *args, **kwargs):
-        super(QToaster, self).__init__(*args, **kwargs)
-        QtWidgets.QVBoxLayout(self)
-
-        # self.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
-        #                    QtWidgets.QSizePolicy.Maximum)
-        self.setFixedSize(350, 200)
+        super().__init__(*args, **kwargs)
+        # bootstrap
+        self.bootstrap()
+        # timer
+        self.timer = QTimer(singleShot=True, timeout=self.hide)
+        # stylesheet
         self.setStyleSheet('''
             QToaster {
                 border: 1px solid #555;
                 background-color: #333;
             }
         ''')
-        # alternatively:
-        # self.setAutoFillBackground(True)
-        # self.setFrameShape(self.Box)
 
-        self.timer = QtCore.QTimer(singleShot=True, timeout=self.hide)
+    def bootstrap(self):
+        self.setMaximumSize(400, 250)
+        # general layout
+        generalLayout = QVBoxLayout()
+        self.setLayout(generalLayout)
+        # customize window frame
+        self.setWindowFlags(
+            self.windowFlags() |
+            Qt.FramelessWindowHint |
+            Qt.BypassWindowManagerHint
+        )
 
-        self.opacityAni = QtCore.QPropertyAnimation(self, b'windowOpacity')
+    def opacityEffect(self):
+        self.opacityAni = QPropertyAnimation(self, b'windowOpacity')
         self.opacityAni.setStartValue(0.)
         self.opacityAni.setEndValue(1.)
-        self.opacityAni.setDuration(100)
+        self.opacityAni.setDuration(200)
+        self.opacityAni.start()
         self.opacityAni.finished.connect(self.checkClosed)
 
     def checkClosed(self):
@@ -70,24 +81,19 @@ class QToaster(QtWidgets.QFrame):
     def showMessage(message, title, level, closable=True, timeout=5000):
 
         self = QToaster(None)
-        self.setWindowFlags(
-            self.windowFlags() |
-            QtCore.Qt.FramelessWindowHint |
-            QtCore.Qt.BypassWindowManagerHint
-        )
         # This is a dirty hack!
         # parentless objects are garbage collected, so the widget will be
         # deleted as soon as the function that calls it returns, but if an
         # object is referenced to *any* other object it will not, at least
         # for PyQt (I didn't test it to a deeper level)
         self.__self = self
-        currentScreen = QtWidgets.QApplication.primaryScreen()
-        reference = QtCore.QRect(
-                QtGui.QCursor.pos() - QtCore.QPoint(1, 1),
-                QtCore.QSize(3, 3)
+        currentScreen = QApplication.primaryScreen()
+        reference = QRect(
+                QCursor.pos() - QPoint(1, 1),
+                QSize(3, 3)
         )
         maxArea = 0
-        for screen in QtWidgets.QApplication.screens():
+        for screen in QApplication.screens():
             intersected = screen.geometry().intersected(reference)
             area = intersected.width() * intersected.height()
             if area > maxArea:
@@ -98,29 +104,29 @@ class QToaster(QtWidgets.QFrame):
         self.timer.setInterval(timeout)
         # set icon
         if level == 1:
-            pix = QtWidgets.QStyle.StandardPixmap.SP_MessageBoxWarning
+            pix = QStyle.StandardPixmap.SP_MessageBoxWarning
         elif level == 2:
-            pix = QtWidgets.QStyle.StandardPixmap.SP_MessageBoxCritical
+            pix = QStyle.StandardPixmap.SP_MessageBoxCritical
         else:
-            pix = QtWidgets.QStyle.StandardPixmap.SP_MessageBoxInformation
+            pix = QStyle.StandardPixmap.SP_MessageBoxInformation
 
         # upper close button layout
-        nofitLayout = QtWidgets.QHBoxLayout()
+        nofitLayout = QHBoxLayout()
         # - level icon layout
-        levelLayout = QtWidgets.QVBoxLayout()
+        levelLayout = QVBoxLayout()
         # - message box layout
-        messageBoxLayout = QtWidgets.QVBoxLayout()
+        messageBoxLayout = QVBoxLayout()
         # -- title layout
-        titleLayout = QtWidgets.QHBoxLayout()
+        titleLayout = QHBoxLayout()
         # -- message layout
-        messageLayout = QtWidgets.QHBoxLayout()
+        messageLayout = QHBoxLayout()
         # icon
         icon = self.style().standardIcon(pix)
-        self.icon = QtWidgets.QLabel()
+        self.icon = QLabel()
         self.icon.setPixmap(icon.pixmap(32))
         levelLayout.addWidget(self.icon)
         # title
-        self.ttl = QtWidgets.QLabel(title)
+        self.ttl = QLabel(title)
         self.ttl.setFixedSize(310, 30)
         self.ttl.setWordWrap(True)
         self.ttl.setStyleSheet("""
@@ -132,7 +138,7 @@ class QToaster(QtWidgets.QFrame):
         """)
         titleLayout.addWidget(self.ttl)
         # message
-        self.msg = QtWidgets.QLabel(message)
+        self.msg = QLabel(message)
         self.msg.setWordWrap(True)
         self.msg.setStyleSheet("""
             QLabel{
@@ -150,9 +156,9 @@ class QToaster(QtWidgets.QFrame):
         self.layout().addLayout(nofitLayout)
 
         if closable:
-            self.closeButton = QtWidgets.QPushButton('Dismiss')
+            self.closeButton = QPushButton('Dismiss')
             self.layout().addWidget(self.closeButton)
-            self.closeButton.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+            self.closeButton.setCursor(QCursor(Qt.PointingHandCursor))
             self.closeButton.clicked.connect(self.close)
             self.closeButton.setStyleSheet("""
                 QPushButton{
@@ -175,18 +181,18 @@ class QToaster(QtWidgets.QFrame):
         geo = self.geometry()
         # now the widget should have the correct size hints, let's move it to the
         # right place
-        geo.moveBottomRight(parentRect.bottomRight() + QtCore.QPoint(-margin, -margin))
+        geo.moveBottomRight(parentRect.bottomRight() + QPoint(-margin, -margin))
         self.setGeometry(geo)
         self.show()
-        self.opacityAni.start()
+        self.opacityEffect()
 
 
-class ShowNofit(QtWidgets.QWidget):
+class ShowNofit(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.generalLayout = QtWidgets.QVBoxLayout(self)
+        self.generalLayout = QVBoxLayout(self)
         self.rcWin = None
-        self.clickBtn = QtWidgets.QPushButton('Click')
+        self.clickBtn = QPushButton('Click')
         self.clickBtn.clicked.connect(self.showToaster)
         # attach
         self.generalLayout.addWidget(self.clickBtn)
@@ -199,7 +205,7 @@ class ShowNofit(QtWidgets.QWidget):
 
 
 if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     main = ShowNofit()
     main.show()
     sys.exit(app.exec_())

@@ -1,35 +1,27 @@
 # standard
 import sys
+from functools import partial
 # pyqt
 from PyQt5.QtGui import (QCursor, QIcon, QPixmap, QFont)
-from PyQt5.QtCore import (QTimer, QPropertyAnimation, QRect, QPoint, QSize, Qt)
+from PyQt5.QtCore import (QTimer, QPropertyAnimation, QRect, QPoint, QSize, Qt,
+                          pyqtSignal, QThread, QObject)
 from PyQt5.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QStyle,
                              QLabel, QPushButton, QWidget, QDialog)
 
 
-class ShowButton(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.generalLayout = QVBoxLayout(self)
-        self.clickBtn = QPushButton('Click')
-        self.clickBtn.clicked.connect(self.showButton)
-        # attach
-        self.generalLayout.addWidget(self.clickBtn)
-
-    def showButton(self):
-        self.rcWin = Toaster('boq', 'double boq')
-        self.rcWin.showToast()
-
-
 class Toaster(QDialog):
-    def __init__(self, title, message, parent=None):
+    closed = pyqtSignal(int)
+
+    def __init__(self, tid, title, message, timeout, margin, parent=None):
         super().__init__(parent)
+        self._id = tid
         self.title = title
         self.message = message
+        self.timeout = timeout
+        self.margin = margin
         # bootstrap
         self._bootstrap()
         # location
-        self.margin = 10
         self._location(self.margin)
         # stylesheet
         self.setStyleSheet("""
@@ -45,6 +37,7 @@ class Toaster(QDialog):
         """)
 
     def _bootstrap(self):
+        self.setWindowModality(Qt.NonModal)
         self.setFixedSize(380, 220)
         self.generalLayout = QHBoxLayout()
         self.generalLayout.setContentsMargins(0, 0, 0, 0)
@@ -57,7 +50,7 @@ class Toaster(QDialog):
         self.iconBar()
         self.messageBar(self.title, self.message)
         self.closeButton()
-        self.timerStart()
+        self.timerStart(self.timeout)
         self.opacityEffect()
 
     def closeButton(self):
@@ -134,7 +127,7 @@ class Toaster(QDialog):
         geo.moveBottomRight(parentRect.bottomRight() + QPoint(-10, -margin))
         self.setGeometry(geo)
 
-    def timerStart(self, timeout=7000):
+    def timerStart(self, timeout):
         self.timer = QTimer(singleShot=True, timeout=self.hide)
         self.timer.setInterval(timeout)
         self.timer.start()
@@ -180,13 +173,31 @@ class Toaster(QDialog):
     def closeEvent(self, event):
         # we don't need the notification anymore, delete it!
         self.deleteLater()
+        self.closed.emit(self._id)
 
     def showToast(self):
-        if not self.isVisible():
-            self.show()
+        self.show()
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    main = ShowButton()
-    main.show()
-    sys.exit(app.exec_())
+
+class Observer(object):
+    def __init__(self):
+        self.toastList = list()
+
+    def manager(self, title, message, timeout):
+        nextID = len(self.toastList)
+        margin = 10
+        if len(self.toastList) == 0:
+            margin = 10
+        else:
+            margin += 230
+        self.notif = Toaster(nextID, title, message, timeout, margin)
+        self.toastList.append(nextID)
+        self.notif.closed.connect(self.endTimer)
+        self.notif.showToast()
+
+    def endTimer(self, index):
+        self.toastList.remove(index)
+
+_notifs = Observer()
+
+show = _notifs.manager

@@ -1,6 +1,6 @@
 # standard
 import sys
-from functools import partial
+from _collections import OrderedDict
 # pyqt
 from PyQt5.QtGui import (QCursor, QIcon, QPixmap, QFont)
 from PyQt5.QtCore import (QTimer, QPropertyAnimation, QRect, QPoint, QSize, Qt,
@@ -10,19 +10,17 @@ from PyQt5.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QStyle,
 
 
 class Toaster(QDialog):
-    closed = pyqtSignal(int)
-
-    def __init__(self, tid, title, message, timeout, margin, parent=None):
+    closed = pyqtSignal()
+    tid = 0
+    def __init__(self, title, message, timeout, parent=None):
         super().__init__(parent)
-        self._id = tid
+        self.id = self.genId()
         self.title = title
         self.message = message
         self.timeout = timeout
-        self.margin = margin
+        self.margin = 15
         # bootstrap
         self._bootstrap()
-        # location
-        self._location(self.margin)
         # stylesheet
         self.setStyleSheet("""
             Toaster {
@@ -38,7 +36,7 @@ class Toaster(QDialog):
 
     def _bootstrap(self):
         self.setWindowModality(Qt.NonModal)
-        self.setFixedSize(380, 220)
+        self.setFixedSize(360, 140)
         self.generalLayout = QHBoxLayout()
         self.generalLayout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.generalLayout)
@@ -52,6 +50,11 @@ class Toaster(QDialog):
         self.closeButton()
         self.timerStart(self.timeout)
         self.opacityEffect()
+
+    @classmethod
+    def genId(cls):
+        cls.tid += 1
+        return cls.tid
 
     def closeButton(self):
         self.btnCloseLayout = QVBoxLayout()
@@ -111,7 +114,7 @@ class Toaster(QDialog):
         self.iconLayout.addWidget(self.lblIcon)
         self.generalLayout.addLayout(self.iconLayout)
 
-    def _location(self, margin):
+    def location(self, margin):
         # set location to bottom right
         currentScreen = QApplication.primaryScreen()
         reference = QRect(QCursor.pos() - QPoint(1, 1), QSize(3, 3))
@@ -124,7 +127,7 @@ class Toaster(QDialog):
                 currentScreen = screen
         parentRect = currentScreen.availableGeometry()
         geo = self.geometry()
-        geo.moveBottomRight(parentRect.bottomRight() + QPoint(-10, -margin))
+        geo.moveBottomRight(parentRect.bottomRight() + QPoint(-15, -margin))
         self.setGeometry(geo)
 
     def timerStart(self, timeout):
@@ -173,30 +176,59 @@ class Toaster(QDialog):
     def closeEvent(self, event):
         # we don't need the notification anymore, delete it!
         self.deleteLater()
-        self.closed.emit(self._id)
+        self.closed.emit()
 
     def showToast(self):
+        self.location(self.margin)
         self.show()
+        self.raise_()
 
 
 class Observer(object):
     def __init__(self):
-        self.toastList = list()
+        self.managerId = None
+        self.idList = [1, 2, 3]
+        self.notifDict= dict()
+        self.queueList = list()
+        self.size = 3
 
     def manager(self, title, message, timeout):
-        nextID = len(self.toastList)
-        margin = 10
-        if len(self.toastList) == 0:
-            margin = 10
-        else:
-            margin += 230
-        self.notif = Toaster(nextID, title, message, timeout, margin)
-        self.toastList.append(nextID)
-        self.notif.closed.connect(self.endTimer)
-        self.notif.showToast()
+        self.notif = Toaster(title, message, timeout)
 
-    def endTimer(self, index):
-        self.toastList.remove(index)
+        if self.idList:
+            self.setId()
+        else:
+            self.queueList.append(self.notif.id)
+
+        for i in self.idList:
+            print(i)
+
+        self.notif.margin = self.setLocation()
+        self.showProcess()
+
+    def setId(self):
+        self.managerId = self.idList[0]
+        self.idList.pop(0)
+
+    def setLocation(self):
+        margin = 0
+        if self.managerId == 1:
+            margin = 15
+        elif self.managerId == 2:
+            margin = 165
+        elif self.managerId == 3:
+            margin = 315
+
+        return margin
+
+    def showProcess(self):
+        self.notif.showToast()
+        self.notif.closed.connect(self.endTimer)
+
+    def endTimer(self):
+        self.idList.append(self.managerId)
+        print('OK')
+
 
 _notifs = Observer()
 
